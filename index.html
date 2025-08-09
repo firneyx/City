@@ -1,1 +1,507 @@
-.
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>City Builder — Single File</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #f6f8fc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted:#64748b;
+      --ring:#e2e8f0;
+      --accent:#2563eb;
+      --good:#10b981;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --shadow: 0 8px 30px rgba(2,6,23,.06);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Poppins,system-ui,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:linear-gradient(135deg,#f8fafc,#eef2ff) fixed}
+    .app{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:100%}
+    .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    .row{display:flex;gap:12px}
+    .grow{flex:1}
+    .card{background:var(--card); border:1px solid var(--ring); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .card .hdr{padding:10px 14px;border-bottom:1px solid var(--ring);font-weight:600}
+    .card .body{padding:12px 14px}
+    input[type=text]{border:1px solid var(--ring);border-radius:999px;padding:8px 12px;outline:none}
+    .pill{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--ring);border-radius:999px;padding:6px 10px;font-size:12px}
+    .muted{color:var(--muted)}
+    .btn{border:1px solid var(--ring);background:var(--card);padding:8px 12px;border-radius:999px;cursor:pointer;font-weight:600}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(2,6,23,.08)}
+    .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .btn.ghost{background:transparent}
+    .btn.warn{background:#fff7ed;border-color:#fed7aa}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .layout{display:grid;grid-template-columns:240px 1fr 280px; gap:12px; min-height: calc(100vh - 90px)}
+    @media (max-width: 980px){
+      .layout{grid-template-columns:1fr}
+    }
+    .palette .btn{width:100%;justify-content:flex-start}
+    .grid{display:grid;grid-template-columns:repeat(24,1fr);grid-template-rows:repeat(24,24px);gap:2px;background:#e5e7eb;padding:10px;border-radius:14px}
+    .tile{border:1px solid #fff; border-radius:6px; height:24px; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; position:relative; transition:transform .05s}
+    .tile:hover{transform:scale(1.03)}
+    .bar{height:6px;background:#eef2ff;border-radius:999px;overflow:hidden}
+    .bar>.v{height:100%;background:var(--accent)}
+    .bar.good>.v{background:var(--good)}
+    .bar.warn>.v{background:var(--warn)}
+    .bar.bad>.v{background:var(--danger)}
+    .kvs{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}
+    .kvs b{font-weight:700}
+    .legend{display:flex;flex-wrap:wrap;gap:6px}
+    .legend .pill{border-radius:10px}
+    .maphdr{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+    .tabs{display:flex;border:1px solid var(--ring);border-radius:999px;overflow:hidden}
+    .tabs button{padding:6px 10px;font-size:12px;border:none;background:transparent;cursor:pointer}
+    .tabs button.active{background:var(--ink);color:#fff}
+    .notes{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow:auto}
+    .note{font-size:12px;background:#fff;border:1px solid var(--ring);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+    .toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:50}
+    .toast .item{background:#111827;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25);font-size:13px;opacity:.98}
+    .help{font-size:13px;white-space:pre-wrap;color:#334155}
+    .sl{width:100%}
+    .sliderrow{display:flex;align-items:center;gap:10px}
+    .occb{position:absolute;left:2px;right:2px;bottom:2px;height:4px;background:rgba(255,255,255,.6);border-radius:999px;overflow:hidden}
+    .occb>.w{height:100%;background:#10b981}
+    /* Colors for tiles */
+    .c-empty{background:#f1f5f9}
+    .c-road{background:#e2e8f0}
+    .c-res{background:#bbf7d0}
+    .c-com{background:#bae6fd}
+    .c-ind{background:#fde68a}
+    .c-power{background:#fde047}
+    .c-water{background:#93c5fd}
+    .c-park{background:#86efac}
+    .c-school{background:#c7d2fe}
+    .c-police{background:#a5f3fc}
+    .c-fire{background:#fecaca}
+    canvas{width:100%;height:140px;border:1px solid var(--ring);border-radius:12px;background:#fff}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="row">
+      <input id="cityName" type="text" value="Kota Impian" />
+      <span class="pill"><b id="dateLbl">01/2050</b><span class="muted">•</span>Pop: <b id="popLbl">0</b><span class="muted">•</span>Bahagia: <b id="happyLbl">60%</b></span>
+    </div>
+    <div class="row">
+      <span class="pill">Uang: <b id="moneyLbl">Rp 5.000</b></span>
+      <div class="row">
+        <div class="card" style="padding:8px 10px">
+          <div class="kvs" style="min-width:150px">
+            <span class="muted" style="font-size:12px">⚡ Listrik</span><span id="pwrPct" style="text-align:right;font-weight:700">0%</span>
+            <div class="bar"><div id="pwrBar" class="v" style="width:0%"></div></div><div></div>
+          </div>
+        </div>
+        <div class="card" style="padding:8px 10px">
+          <div class="kvs" style="min-width:150px">
+            <span class="muted" style="font-size:12px">💧 Air</span><span id="wtrPct" style="text-align:right;font-weight:700">0%</span>
+            <div class="bar"><div id="wtrBar" class="v" style="width:0%"></div></div><div></div>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn" id="sp0">⏸</button>
+        <button class="btn" id="sp1">1x</button>
+        <button class="btn" id="sp2">⏩2x</button>
+        <button class="btn" id="sp4">⏩4x</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT -->
+    <div class="card">
+      <div class="hdr">Pembangunan</div>
+      <div class="body palette" id="palette"></div>
+      <div class="body">
+        <div class="kvs">
+          <span>Ukuran Kuas</span><b><span id="brushLbl">1×1</span></b>
+        </div>
+        <input class="sl" id="brush" type="range" min="1" max="5" step="2" value="1">
+        <div class="kvs" style="margin-top:8px">
+          <span>Biaya</span><b id="costLbl">Rp 10</b>
+          <span>Perawatan / tick</span><b id="mntLbl">Rp 1</b>
+        </div>
+      </div>
+      <div class="hdr">Ringkasan</div>
+      <div class="body">
+        <div class="kvs" id="summary"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="card">
+      <div class="body">
+        <div class="maphdr">
+          <div class="legend" id="legend"></div>
+          <div class="row">
+            <button class="btn" id="saveBtn">Simpan</button>
+            <button class="btn" id="loadBtn">Muat</button>
+            <button class="btn ghost" id="newBtn">Baru</button>
+            <button class="btn" id="helpBtn">Bantuan</button>
+          </div>
+        </div>
+        <div class="grid" id="grid"></div>
+        <div class="row" style="justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">
+          <div>
+            Mode: <span id="modeLbl" class="pill">Jalan</span> • Kuas: <span id="brushLbl2">1×1</span>
+            <span id="shortPwr" class="pill" style="display:none;background:#fff7ed;border-color:#fde68a;margin-left:6px">⚠️ Listrik kurang</span>
+            <span id="shortWtr" class="pill" style="display:none;background:#eff6ff;border-color:#bfdbfe;margin-left:6px">⚠️ Air kurang</span>
+          </div>
+          <div class="muted" style="display:flex;align-items:center;gap:6px">
+            <span class="pill">Klik: Bangun • Aktifkan Bulldoze untuk hapus</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card">
+      <div class="hdr">Kebijakan</div>
+      <div class="body">
+        <div class="sliderrow"><span style="width:120px">Pajak Warga</span><input id="taxRes" class="sl" type="range" min="1" max="20" value="8"><b id="taxResLbl" style="width:36px;text-align:right">8%</b></div>
+        <div class="sliderrow"><span style="width:120px">Pajak Komersial</span><input id="taxCom" class="sl" type="range" min="1" max="20" value="9"><b id="taxComLbl" style="width:36px;text-align:right">9%</b></div>
+        <div class="sliderrow"><span style="width:120px">Pajak Industri</span><input id="taxInd" class="sl" type="range" min="1" max="20" value="10"><b id="taxIndLbl" style="width:36px;text-align:right">10%</b></div>
+      </div>
+      <div class="hdr">Grafik</div>
+      <div class="body">
+        <div class="tabs" style="margin-bottom:8px">
+          <button id="tabPop" class="active">Populasi</button>
+          <button id="tabCash">Kas</button>
+        </div>
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="hdr">Notifikasi</div>
+      <div class="body">
+        <div class="notes" id="notes"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:10px 14px;font-size:12px;color:var(--muted)">
+    Klik pada grid untuk membangun. Simpan/Muat tersedia di atas peta. UI murni HTML/CSS/JS (single file).
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const MAP_W=24, MAP_H=24;
+  const TYPES={
+    empty:{label:"Kosong",cost:0,maintenance:0,color:"c-empty",icon:""},
+    road:{label:"Jalan",cost:10,maintenance:1,color:"c-road",icon:"🛣️"},
+    res:{label:"Perumahan",cost:50,maintenance:2,color:"c-res",icon:"🏠"},
+    com:{label:"Komersial",cost:80,maintenance:3,color:"c-com",icon:"🏪"},
+    ind:{label:"Industri",cost:100,maintenance:4,color:"c-ind",icon:"🏭"},
+    power:{label:"PLTU",cost:1000,maintenance:15,color:"c-power",icon:"⚡"},
+    water:{label:"Menara Air",cost:800,maintenance:12,color:"c-water",icon:"💧"},
+    park:{label:"Taman",cost:300,maintenance:2,color:"c-park",icon:"🌳"},
+    school:{label:"Sekolah",cost:500,maintenance:5,color:"c-school",icon:"🎓"},
+    police:{label:"Polisi",cost:600,maintenance:6,color:"c-police",icon:"🛡️"},
+    fire:{label:"Damkar",cost:650,maintenance:6,color:"c-fire",icon:"🔥"},
+  };
+  const JOBS_PER={com:6, ind:10};
+  const CAPACITY={power:320, water:320};
+  const UTILITY_RADIUS=6, SERVICE_RADIUS=4, POLLUTION_RADIUS=3, MAX_OCCUPANCY_PER_RES=10;
+  const TICK_MS_BASE=900;
+
+  const gridEl=document.getElementById('grid');
+  const paletteEl=document.getElementById('palette');
+  const summaryEl=document.getElementById('summary');
+  const legendEl=document.getElementById('legend');
+  const modeLbl=document.getElementById('modeLbl');
+  const brushInput=document.getElementById('brush');
+  const brushLbl=document.getElementById('brushLbl');
+  const brushLbl2=document.getElementById('brushLbl2');
+  const moneyLbl=document.getElementById('moneyLbl');
+  const dateLbl=document.getElementById('dateLbl');
+  const popLbl=document.getElementById('popLbl');
+  const happyLbl=document.getElementById('happyLbl');
+  const pwrBar=document.getElementById('pwrBar');
+  const wtrBar=document.getElementById('wtrBar');
+  const pwrPct=document.getElementById('pwrPct');
+  const wtrPct=document.getElementById('wtrPct');
+  const taxRes=document.getElementById('taxRes');
+  const taxCom=document.getElementById('taxCom');
+  const taxInd=document.getElementById('taxInd');
+  const taxResLbl=document.getElementById('taxResLbl');
+  const taxComLbl=document.getElementById('taxComLbl');
+  const taxIndLbl=document.getElementById('taxIndLbl');
+  const notesEl=document.getElementById('notes');
+  const toastEl=document.getElementById('toast');
+  const cityNameEl=document.getElementById('cityName');
+  const shortPwr=document.getElementById('shortPwr');
+  const shortWtr=document.getElementById('shortWtr');
+  const costLbl=document.getElementById('costLbl');
+  const mntLbl=document.getElementById('mntLbl');
+  const chartEl=document.getElementById('chart');
+  const tabPop=document.getElementById('tabPop');
+  const tabCash=document.getElementById('tabCash');
+
+  const sp0=document.getElementById('sp0'), sp1=document.getElementById('sp1'), sp2=document.getElementById('sp2'), sp4=document.getElementById('sp4');
+  const saveBtn=document.getElementById('saveBtn'), loadBtn=document.getElementById('loadBtn'), newBtn=document.getElementById('newBtn'), helpBtn=document.getElementById('helpBtn');
+
+  let grid=initGrid();
+  let money=5000, population=0, happiness=60;
+  let date={month:1, year:2050, _ticks:0};
+  let selected='road', bulldoze=false, brush=1;
+  let speed=1;
+  let tax={res:8, com:9, ind:10};
+  let notes=[{t:'Selamat datang, Wali Kota! Bangun PLTU & Menara Air dulu.', ts:Date.now()}];
+  let charts={money:[], population:[]};
+  let coverage=null;
+
+  // RENDER STATIC UI
+  renderPalette();
+  renderLegend();
+  renderSummary();
+  renderGrid();
+  refreshTop();
+
+  // EVENTS
+  brushInput.addEventListener('input',()=>{ brush=parseInt(brushInput.value,10); brushLbl.textContent=brush+'×'+brush; brushLbl2.textContent=brush+'×'+brush; });
+  sp0.onclick=()=>speed=0; sp1.onclick=()=>speed=1; sp2.onclick=()=>speed=2; sp4.onclick=()=>speed=4;
+  taxRes.oninput=()=>{tax.res=parseInt(taxRes.value,10); taxResLbl.textContent=tax.res+'%';};
+  taxCom.oninput=()=>{tax.com=parseInt(taxCom.value,10); taxComLbl.textContent=tax.com+'%';};
+  taxInd.oninput=()=>{tax.ind=parseInt(taxInd.value,10); taxIndLbl.textContent=tax.ind+'%';};
+  saveBtn.onclick=()=>{ localStorage.setItem('city-single', JSON.stringify({grid,money,population,happiness,date,tax,cityName:cityNameEl.value})); toast('Game tersimpan'); };
+  loadBtn.onclick=()=>{
+    const s=localStorage.getItem('city-single');
+    if(!s) return toast('Tidak ada data simpanan');
+    try{ const d=JSON.parse(s); grid=d.grid||initGrid(); money=d.money??5000; population=d.population??0; happiness=d.happiness??60; date=d.date||{month:1,year:2050,_ticks:0}; tax=d.tax||{res:8,com:9,ind:10}; cityNameEl.value=d.cityName||'Kota Impian'; renderGrid(); renderSummary(); refreshTop(); toast('Simpanan dimuat'); }catch(e){ toast('Gagal memuat simpanan'); }
+  };
+  newBtn.onclick=()=>{ grid=initGrid(); money=5000; population=0; happiness=60; date={month:1,year:2050,_ticks:0}; tax={res:8,com:9,ind:10}; renderGrid(); renderSummary(); refreshTop(); toast('Kota baru dimulai'); };
+  helpBtn.onclick=()=>alert('Cara main singkat:\\n1) Bangun PLTU ⚡ & Menara Air 💧, lalu Jalan 🛣️.\\n2) Zona Perumahan 🏠, Komersial 🏪, Industri 🏭 (harus listrik, air, dan menempel jalan).\\n3) Tambah Taman 🌳 & Sekolah 🎓; jaga keamanan (Polisi) & kebakaran (Damkar).\\n4) Atur Pajak di panel kanan.\\n5) Simpan/Muat kapan saja.');
+  tabPop.onclick=()=>{tabPop.classList.add('active'); tabCash.classList.remove('active'); drawChart('population');};
+  tabCash.onclick=()=>{tabCash.classList.add('active'); tabPop.classList.remove('active'); drawChart('money');};
+
+  // GRID INTERACTION
+  gridEl.addEventListener('mousedown', (e)=>{
+    const cellEl=e.target.closest('.tile'); if(!cellEl) return;
+    const i=parseInt(cellEl.dataset.i,10); const y=Math.floor(i/MAP_W), x=i%MAP_W;
+    buildAt(x,y,true);
+  });
+
+  // TICK
+  setInterval(()=>{ if(speed===0) return; tick(); }, Math.max(120, TICK_MS_BASE/ (speed||1)));
+
+  function tick(){
+    // coverage
+    coverage=computeCoverage();
+    // growth/decay + counts
+    let totalPop=0, totalJobs=0, maintenance=0, powerUse=0, waterUse=0, powerCap=0, waterCap=0;
+    const counts={res:0, com:0, ind:0, road:0, power:0, water:0, park:0, school:0, police:0, fire:0};
+    for(let i=0;i<grid.length;i++){
+      const c=grid[i]; counts[c.type]=(counts[c.type]||0)+1;
+      if(c.type==='res'){
+        const okBasics = coverage.hasRoad[i] && coverage.powered[i] && coverage.watered[i];
+        const happyBoost = (coverage.park[i]?1:0)+(coverage.school[i]?1:0);
+        const safety = (coverage.police[i]?0.5:0)+(coverage.fire[i]?0.5:0);
+        const taxPenalty = (tax.res-8)*-0.03;
+        let delta = okBasics ? 0.5 + happyBoost*0.3 + safety*0.2 + taxPenalty + (Math.random()*0.4-0.2) : -0.8 + (Math.random()*0.2);
+        if(coverage.pollution[i]) delta -= 0.4;
+        c.occupancy = clamp(c.occupancy + delta, 0, MAX_OCCUPANCY_PER_RES);
+        totalPop += Math.floor(c.occupancy);
+        powerUse += c.occupancy*0.6 + 1;
+        waterUse += c.occupancy*0.6 + 1;
+      } else if(c.type==='com'){
+        c.jobs=JOBS_PER.com; totalJobs+=c.jobs;
+        powerUse += JOBS_PER.com*0.8 + 2; waterUse += JOBS_PER.com*0.6 + 1;
+      } else if(c.type==='ind'){
+        c.jobs=JOBS_PER.ind; totalJobs+=c.jobs;
+        powerUse += JOBS_PER.ind*1.0 + 3; waterUse += JOBS_PER.ind*0.5 + 1;
+      } else if(c.type==='school' || c.type==='police' || c.type==='fire'){
+        powerUse+=3; waterUse+=1;
+      } else if(c.type==='park'){
+        powerUse+=0.5; waterUse+=0.5;
+      }
+      maintenance += TYPES[c.type].maintenance||0;
+      if(c.type==='power') powerCap += CAPACITY.power;
+      if(c.type==='water') waterCap += CAPACITY.water;
+    }
+    population=totalPop;
+    const employed = Math.min(totalPop, totalJobs);
+    const resIncome = Math.floor(totalPop * (tax.res/100) * 8);
+    const comIncome = Math.floor(totalJobs * 0.6 * (tax.com/100) * 10);
+    const indIncome = Math.floor(totalJobs * 0.4 * (tax.ind/100) * 12);
+    const net = resIncome + comIncome + indIncome - maintenance;
+    money += net;
+
+    const shortages={ power: powerUse>powerCap, water: waterUse>waterCap };
+    if(shortages.power) toast('Kapasitas listrik kurang! Bangun PLTU baru.');
+    if(shortages.water) toast('Kapasitas air kurang! Bangun Menara Air baru.');
+    shortPwr.style.display=shortages.power?'inline-flex':'none';
+    shortWtr.style.display=shortages.water?'inline-flex':'none';
+
+    const baseHappy = 55 + (coverage.park.some(Boolean)?5:0) + (coverage.school.some(Boolean)?5:0);
+    const utilPenalty = (shortages.power?10:0)+(shortages.water?10:0);
+    const taxPen = Math.max(0,tax.res-10)*1.2 + Math.max(0,tax.com-10)*0.7 + Math.max(0,tax.ind-10)*0.7;
+    happiness = clamp(happiness + (baseHappy - utilPenalty - taxPen - 50)*0.02, 0, 100);
+
+    date._ticks++; if(date._ticks%3===0){ date.month++; if(date.month>12){date.month=1; date.year++;} }
+    // charts
+    charts.money.push({t:Date.now(), v:Math.max(0, money)}); if(charts.money.length>60) charts.money.shift();
+    charts.population.push({t:Date.now(), v:population}); if(charts.population.length>60) charts.population.shift();
+
+    // render
+    renderGrid(true);
+    renderSummary();
+    refreshTop(powerUse,powerCap,waterUse,waterCap);
+    drawChart(tabPop.classList.contains('active')?'population':'money');
+  }
+
+  function refreshTop(pu=0,pc=1,wu=0,wc=1){
+    moneyLbl.textContent=fmtMoney(money);
+    dateLbl.textContent=(String(date.month).padStart(2,'0'))+'/'+date.year;
+    popLbl.textContent=population;
+    happyLbl.textContent=Math.round(happiness)+'%';
+    const pp=Math.min(100,Math.floor((pu/Math.max(1,pc))*100)), wp=Math.min(100,Math.floor((wu/Math.max(1,wc))*100));
+    pwrBar.style.width=pp+'%'; wtrBar.style.width=wp+'%';
+    pwrBar.parentElement.className='bar '+(pp<75?'good':pp<100?'warn':'bad'); wtrBar.parentElement.className='bar '+(wp<75?'good':wp<100?'warn':'bad');
+    pwrPct.textContent=pp+'%'; wtrPct.textContent=wp+'%';
+  }
+
+  function renderPalette(){
+    const items=[ 'road','power','water','res','com','ind','park','school','police','fire','bulldoze' ];
+    paletteEl.innerHTML='';
+    items.forEach(k=>{
+      const b=document.createElement('button'); b.className='btn'; b.style.marginBottom='6px';
+      const isBulldoze=k==='bulldoze';
+      b.textContent = isBulldoze ? '🛠️ Bulldoze' : (TYPES[k].icon+' '+TYPES[k].label);
+      b.onclick=()=>{ if(isBulldoze){bulldoze=!bulldoze; selected='road'; modeLbl.textContent=bulldoze?'Bulldoze':TYPES[selected].label; b.classList.toggle('warn',bulldoze); } else { selected=k; bulldoze=false; modeLbl.textContent=TYPES[selected].label; document.querySelectorAll('#palette .btn').forEach(x=>x.classList.remove('primary')); b.classList.add('primary'); updateCostMnt(); } };
+      if(k==='road') b.classList.add('primary');
+      paletteEl.appendChild(b);
+    });
+    updateCostMnt();
+  }
+  function updateCostMnt(){
+    const t=TYPES[selected]; costLbl.textContent=fmtMoney(t.cost); mntLbl.textContent=fmtMoney(t.maintenance);
+  }
+  function renderLegend(){
+    legendEl.innerHTML='';
+    ['road','res','com','ind','power','water','park','school','police','fire'].forEach(k=>{
+      const s=document.createElement('span'); s.className='pill'; s.textContent=TYPES[k].icon+' '+TYPES[k].label; legendEl.appendChild(s);
+    });
+  }
+  function renderSummary(){
+    const counts={res:0,com:0,ind:0,road:0,power:0,water:0,park:0,school:0,police:0,fire:0};
+    grid.forEach(c=>counts[c.type]=(counts[c.type]||0)+1);
+    summaryEl.innerHTML='';
+    Object.entries(counts).forEach(([k,v])=>{
+      const lab=({res:'Perumahan',com:'Komersial',ind:'Industri',road:'Jalan',power:'PLTU',water:'Menara Air',park:'Taman',school:'Sekolah',police:'Polisi',fire:'Damkar'})[k];
+      const s1=document.createElement('span'); s1.textContent=lab; const s2=document.createElement('b'); s2.textContent=v;
+      summaryEl.appendChild(s1); summaryEl.appendChild(s2);
+    });
+  }
+  function renderGrid(updateOnly=false){
+    if(!updateOnly){
+      gridEl.innerHTML='';
+      for(let i=0;i<grid.length;i++){
+        const d=grid[i]; const div=document.createElement('div'); div.className='tile c-'+d.type; div.dataset.i=i; div.title=TYPES[d.type].label;
+        div.innerHTML = '<span>'+ (TYPES[d.type].icon||'')+'</span>'+ (d.type==='res'?'<div class="occb"><div class="w" style="width:0%"></div></div>':'');
+        gridEl.appendChild(div);
+      }
+    }
+    // updates
+    const tiles=gridEl.children;
+    for(let i=0;i<grid.length;i++){
+      const c=grid[i]; const el=tiles[i];
+      el.className='tile '+TYPES[c.type].color.replace('c-','c-');
+      el.innerHTML = '<span>'+ (TYPES[c.type].icon||'')+'</span>'+ (c.type==='res'?'<div class="occb"><div class="w" style="width:'+((c.occupancy/MAX_OCCUPANCY_PER_RES)*100).toFixed(0)+'%"></div></div>':'');
+    }
+  }
+  function buildAt(x,y,bulk){
+    const half=Math.floor(brush/2);
+    for(let yy=y-half; yy<=y+half; yy++){
+      for(let xx=x-half; xx<=x+half; xx++){
+        if(xx<0||yy<0||xx>=MAP_W||yy>=MAP_H) continue;
+        placeAt(xx,yy,selected,true);
+      }
+    }
+  }
+  function placeAt(x,y,type,bulk){
+    const i=y*MAP_W+x; const cell=grid[i];
+    if(bulldoze){
+      if(cell.type!=='empty'){
+        const refund=Math.floor(TYPES[cell.type].cost*0.35);
+        money+=refund; grid[i]=makeCell(x,y); toast('Bulldoze +'+fmtMoney(refund));
+      }
+      renderGrid(true); refreshTop(); return;
+    }
+    if(cell.type!=='empty' && !(type==='road' && cell.type==='road')) return;
+    const price=TYPES[type].cost;
+    if(money<price){ if(!bulk) toast('Uang tidak cukup'); return; }
+    grid[i]={...cell,type};
+    money-=price;
+    renderGrid(true); refreshTop(); updateCostMnt();
+  }
+  function computeCoverage(){
+    const utilPos={ power:[], water:[], park:[], school:[], police:[], fire:[], ind:[] };
+    grid.forEach(c=>{ if(utilPos[c.type]) utilPos[c.type].push({x:c.x,y:c.y}); if(c.type==='ind') utilPos.ind.push({x:c.x,y:c.y}); });
+    const roadSet=new Set(grid.filter(c=>c.type==='road').map(c=>c.y*MAP_W+c.x));
+    function inRad(list, cell, r){ for(let i=0;i<list.length;i++){ if(manhattan(list[i],cell)<=r) return true; } return false; }
+    const powered=[], watered=[], hasRoad=[], park=[], school=[], police=[], fire=[], pollution=[];
+    for(let i=0;i<grid.length;i++){
+      const cell=grid[i];
+      powered[i]= inRad(utilPos.power, cell, UTILITY_RADIUS);
+      watered[i]= inRad(utilPos.water, cell, UTILITY_RADIUS);
+      const ns=[{x:cell.x+1,y:cell.y},{x:cell.x-1,y:cell.y},{x:cell.x,y:cell.y+1},{x:cell.x,y:cell.y-1}].filter(p=>p.x>=0&&p.y>=0&&p.x<MAP_W&&p.y<MAP_H);
+      hasRoad[i]= ns.some(p=>roadSet.has(p.y*MAP_W+p.x));
+      park[i]=inRad(utilPos.park, cell, SERVICE_RADIUS);
+      school[i]=inRad(utilPos.school, cell, SERVICE_RADIUS);
+      police[i]=inRad(utilPos.police, cell, SERVICE_RADIUS);
+      fire[i]=inRad(utilPos.fire, cell, SERVICE_RADIUS);
+      pollution[i]=inRad(utilPos.ind, cell, POLLUTION_RADIUS);
+    }
+    return {powered, watered, hasRoad, park, school, police, fire, pollution};
+  }
+
+  function manhattan(a,b){ return Math.abs(a.x-b.x)+Math.abs(a.y-b.y); }
+  function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+  function fmtMoney(n){ return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n); }
+
+  function initGrid(){
+    const g=[]; for(let y=0;y<MAP_H;y++){ for(let x=0;x<MAP_W;x++){ g.push(makeCell(x,y)); } }
+    for(let x=3;x<MAP_W-3;x++){ g[yMid()*MAP_W + x].type='road'; }
+    return g;
+    function yMid(){ return Math.floor(MAP_H/2); }
+  }
+  function makeCell(x,y){ return {x,y,type:'empty',level:1,occupancy:0,jobs:0,pollution:0}; }
+
+  function toast(text){
+    notes.unshift({t:text, ts:Date.now()}); if(notes.length>10) notes.pop();
+    // render notes
+    notesEl.innerHTML=''; notes.forEach(n=>{ const d=document.createElement('div'); d.className='note'; d.textContent=n.t; notesEl.appendChild(d); });
+    // bubble toast
+    const el=document.createElement('div'); el.className='item'; el.textContent=text; toastEl.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(6px)'; el.style.transition='all .3s'; setTimeout(()=>el.remove(),300); }, 1800);
+  }
+
+  // Initial seed info
+  notesEl.innerHTML=''; notes.forEach(n=>{ const d=document.createElement('div'); d.className='note'; d.textContent=n.t; notesEl.appendChild(d); });
+
+  // CHART
+  function drawChart(kind){
+    const ctx=chartEl.getContext('2d'); const w=chartEl.width=chartEl.clientWidth*2; const h=chartEl.height=chartEl.clientHeight*2;
+    ctx.clearRect(0,0,w,h); ctx.lineWidth=3; ctx.strokeStyle='#2563eb'; ctx.beginPath();
+    const data=(kind==='population'?charts.population:charts.money); if(data.length<2) return;
+    const vals=data.map(d=>d.v); const min=Math.min(...vals), max=Math.max(...vals); const rng=(max-min)||1;
+    for(let i=0;i<data.length;i++){ const x=i/(data.length-1)*(w-20)+10; const y=h-10 - ((data[i].v-min)/rng)*(h-30); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+  }
+  tabPop.click(); // show pop chart
+  // one-time initial costs text
+  updateCostMnt();
+
+})();
+</script>
+</body>
+</html>
